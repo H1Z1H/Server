@@ -1,0 +1,75 @@
+server:
+  port: 8080
+
+spring:
+  config:
+    import:
+      - optional:file:env/jwt.env[.properties]
+      - optional:file:env/db.env[.properties]
+      - optional:file:env/oauth.env[.properties]
+      - optional:file:env/ai.env[.properties]
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${POSTGRES_URL}
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+
+  jpa:
+    database: postgresql
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  redis:
+    connection:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+  jackson:
+    time-zone: Asia/Seoul
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+springdoc:
+  default-consumes-media-type: application/json;charset=UTF-8
+  default-produces-media-type: application/json;charset=UTF-8
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+    display-request-duration: true
+    operations-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,threaddump
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    enable:
+      http.server.requests: true
+
+jwt:
+  client-secret: ${JWT_CLIENT_SECRET}
+  token-expire: ${JWT_TOKEN_EXPIRE}
+  refresh-token-expire: ${JWT_REFRESH_TOKEN_EXPIRE}
+  issuer: ${JWT_ISSUER}
+
+kakao:
+  client-id: ${KAKAO_CLIENT_ID}
+  client-secret: ${KAKAO_CLIENT_SECRET}
+  redirect-uri: ${KAKAO_REDIRECT_URI}
+
+external:
+  parsing:
+    url: ${PARSING_URL}
+  ai:
+    url: ${AI_URL}
+    token: ${AI_TOKEN}
+
+knowledge:
+  id: ${KNOWLEDGE_ID}
