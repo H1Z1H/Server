@@ -1,5 +1,7 @@
 package com.brick.brick_server.common.config;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,5 +13,12 @@ public class RestTemplateClient {
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder.build();
+    }
+
+    @Bean
+    public Gson gson() {
+        return new GsonBuilder()
+                .setPrettyPrinting()
+                .create();
     }
 }

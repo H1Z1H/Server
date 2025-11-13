@@ -8,6 +8,7 @@ spring:
       - optional:file:env/db.env[.properties]
       - optional:file:env/oauth.env[.properties]
       - optional:file:env/ai.env[.properties]
+      - optional:file:env/gemini.env[.properties]
   datasource:
     driver-class-name: org.postgresql.Driver
     url: ${POSTGRES_URL}
@@ -73,3 +74,8 @@ external:
 
 knowledge:
   id: ${KNOWLEDGE_ID}
+
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  model: "gemini-2.5-flash-lite"
+  max-tokens: 4028
