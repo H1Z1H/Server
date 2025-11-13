@@ -50,144 +50,155 @@ public class WebScrapingUtil {
     private List<NewsArticle> crawlNaverNews(String keyword) {
         List<NewsArticle> articles = new ArrayList<>();
         java.util.Set<String> seenUrls = new java.util.HashSet<>();  // URL 중복 체크
+        int maxArticles = 10;
 
         try {
-            String searchUrl = "https://m.search.naver.com/search.naver?where=m_news&query=" +
-                              java.net.URLEncoder.encode(keyword, "UTF-8") +
-                              "&sort=1";
+            for (int page = 1; page <= 3 && articles.size() < maxArticles; page++) {
+                int start = (page - 1) * 10 + 1;
 
-            log.info("검색 URL: {}", searchUrl);
+                String searchUrl = "https://m.search.naver.com/search.naver?where=m_news&query=" +
+                                  java.net.URLEncoder.encode(keyword, "UTF-8") +
+                                  "&sort=1&start=" + start;
 
-            Document doc = Jsoup.connect(searchUrl)
-                    .timeout(TIMEOUT)
-                    .userAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
-                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                    .header("Accept-Language", "ko-KR,ko;q=0.9")
-                    .ignoreContentType(true)
-                    .followRedirects(true)
-                    .get();
+                log.info("검색 URL (페이지 {}): {}", page, searchUrl);
 
-            Elements newsElements = doc.select("ul.list_news li.bx");
-            log.info("ul.list_news li.bx 선택자로 {}개 발견", newsElements.size());
+                Document doc = Jsoup.connect(searchUrl)
+                        .timeout(TIMEOUT)
+                        .userAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
+                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                        .header("Accept-Language", "ko-KR,ko;q=0.9")
+                        .ignoreContentType(true)
+                        .followRedirects(true)
+                        .get();
 
-            if (newsElements.isEmpty()) {
-                newsElements = doc.select("ul.news_list > li");
-                log.info("ul.news_list > li 선택자로 {}개 발견", newsElements.size());
-            }
+                Elements newsElements = doc.select("ul.list_news li.bx");
+                log.info("ul.list_news li.bx 선택자로 {}개 발견", newsElements.size());
 
-            if (newsElements.isEmpty()) {
-                newsElements = doc.select("div.news_wrap");
-                log.info("div.news_wrap 선택자로 {}개 발견", newsElements.size());
-            }
+                if (newsElements.isEmpty()) {
+                    newsElements = doc.select("ul.news_list > li");
+                    log.info("ul.news_list > li 선택자로 {}개 발견", newsElements.size());
+                }
 
-            if (newsElements.isEmpty()) {
-                newsElements = doc.select("div[class*='news']");
-                log.info("div[class*='news'] 선택자로 {}개 발견", newsElements.size());
-            }
+                if (newsElements.isEmpty()) {
+                    newsElements = doc.select("div.news_wrap");
+                    log.info("div.news_wrap 선택자로 {}개 발견", newsElements.size());
+                }
 
-            if (newsElements.isEmpty()) {
-                log.warn("뉴스 요소를 찾을 수 없습니다. HTML 구조 확인 필요.");
-                log.warn("Body의 첫 2000자: {}",
-                    doc.body().html().substring(0, Math.min(2000, doc.body().html().length())));
-            }
+                if (newsElements.isEmpty()) {
+                    newsElements = doc.select("div[class*='news']");
+                    log.info("div[class*='news'] 선택자로 {}개 발견", newsElements.size());
+                }
 
-            int count = 0;
-            for (Element newsElement : newsElements) {
-                if (count >= 10) break;
+                if (newsElements.isEmpty()) {
+                    log.warn("뉴스 요소를 찾을 수 없습니다. HTML 구조 확인 필요.");
+                    log.warn("Body의 첫 2000자: {}",
+                        doc.body().html().substring(0, Math.min(2000, doc.body().html().length())));
+                }
 
-                try {
-                    if (count == 0) {
-                        log.info("첫 번째 뉴스 요소 HTML 구조:\n{}",
-                            newsElement.html().substring(0, Math.min(2000, newsElement.html().length())));
-                    }
+                int count = 0;
+                for (Element newsElement : newsElements) {
+                    if (count >= 10) break;
 
-                    Elements allLinks = newsElement.select("a[href]");
-                    log.debug("발견된 링크 수: {}", allLinks.size());
+                    try {
+                        if (count == 0) {
+                            log.info("첫 번째 뉴스 요소 HTML 구조:\n{}",
+                                newsElement.html().substring(0, Math.min(2000, newsElement.html().length())));
+                        }
 
-                    Element titleElement = newsElement.selectFirst("a.news_tit");
-                    if (titleElement == null) {
-                        titleElement = newsElement.selectFirst("a.news_link");
-                    }
-                    if (titleElement == null) {
-                        titleElement = newsElement.selectFirst("a[href*='news.naver.com']");
-                    }
-                    if (titleElement == null) {
-                        titleElement = newsElement.selectFirst("a[href*='n.news.naver.com']");
-                    }
-                    if (titleElement == null) {
-                        titleElement = newsElement.selectFirst("div.news_tit a");
-                    }
-                    if (titleElement == null) {
-                        titleElement = newsElement.selectFirst("a.tit");
-                    }
-                    if (titleElement == null && !allLinks.isEmpty()) {
-                        for (Element link : allLinks) {
-                            String href = link.attr("href");
-                            String text = link.text();
-                            if ((href.contains("news.naver.com") || href.contains("n.news.naver.com"))
-                                && !text.isEmpty() && text.length() > 10) {
-                                titleElement = link;
-                                break;
+                        Elements allLinks = newsElement.select("a[href]");
+                        log.debug("발견된 링크 수: {}", allLinks.size());
+
+                        Element titleElement = newsElement.selectFirst("a.news_tit");
+                        if (titleElement == null) {
+                            titleElement = newsElement.selectFirst("a.news_link");
+                        }
+                        if (titleElement == null) {
+                            titleElement = newsElement.selectFirst("a[href*='news.naver.com']");
+                        }
+                        if (titleElement == null) {
+                            titleElement = newsElement.selectFirst("a[href*='n.news.naver.com']");
+                        }
+                        if (titleElement == null) {
+                            titleElement = newsElement.selectFirst("div.news_tit a");
+                        }
+                        if (titleElement == null) {
+                            titleElement = newsElement.selectFirst("a.tit");
+                        }
+                        if (titleElement == null && !allLinks.isEmpty()) {
+                            for (Element link : allLinks) {
+                                String href = link.attr("href");
+                                String text = link.text();
+                                if ((href.contains("news.naver.com") || href.contains("n.news.naver.com"))
+                                    && !text.isEmpty() && text.length() > 10) {
+                                    titleElement = link;
+                                    break;
+                                }
                             }
                         }
-                    }
 
-                    if (titleElement != null) {
-                        String title = titleElement.text();
-                        String url = titleElement.attr("abs:href");  // 절대 URL로 변환
+                        if (titleElement != null) {
+                            String title = titleElement.text();
+                            String url = titleElement.attr("abs:href");  // 절대 URL로 변환
 
-                        log.debug("제목 발견: {}, URL: {}", title, url);
+                            log.debug("제목 발견: {}, URL: {}", title, url);
 
-                        Element descElement = newsElement.selectFirst("div.news_dsc");
-                        if (descElement == null) {
-                            descElement = newsElement.selectFirst("div.dsc_wrap");
-                        }
-                        if (descElement == null) {
-                            descElement = newsElement.selectFirst("div.api_subject_bsc");
-                        }
-                        if (descElement == null) {
-                            descElement = newsElement.selectFirst("p.dsc");
-                        }
-                        if (descElement == null) {
-                            descElement = newsElement.selectFirst("div[class*='dsc']");
-                        }
-                        String description = descElement != null ? descElement.text() : title;
-
-                        String source = "";
-                        Element sourceElement = newsElement.selectFirst("a.info.press");
-                        if (sourceElement == null) {
-                            sourceElement = newsElement.selectFirst("span.press");
-                        }
-                        if (sourceElement == null) {
-                            sourceElement = newsElement.selectFirst("div.info_group a");
-                        }
-                        if (sourceElement == null) {
-                            sourceElement = newsElement.selectFirst("span.info");
-                        }
-                        if (sourceElement == null) {
-                            sourceElement = newsElement.selectFirst("a[class*='press']");
-                        }
-                        source = sourceElement != null ? sourceElement.text() : "출처 미상";
-
-                        if (!url.isEmpty() && !title.isEmpty()) {
-                            if (seenUrls.contains(url)) {
-                                log.debug("중복 URL 스킵: {}", url);
-                                continue;
+                            Element descElement = newsElement.selectFirst("div.news_dsc");
+                            if (descElement == null) {
+                                descElement = newsElement.selectFirst("div.dsc_wrap");
                             }
+                            if (descElement == null) {
+                                descElement = newsElement.selectFirst("div.api_subject_bsc");
+                            }
+                            if (descElement == null) {
+                                descElement = newsElement.selectFirst("p.dsc");
+                            }
+                            if (descElement == null) {
+                                descElement = newsElement.selectFirst("div[class*='dsc']");
+                            }
+                            String description = descElement != null ? descElement.text() : title;
 
-                            seenUrls.add(url);
-                            articles.add(new NewsArticle(title, url, description, source, keyword));
-                            count++;
-                            log.info("뉴스 추가 성공: {} - {}", title, url);
+                            String source = "";
+                            Element sourceElement = newsElement.selectFirst("a.info.press");
+                            if (sourceElement == null) {
+                                sourceElement = newsElement.selectFirst("span.press");
+                            }
+                            if (sourceElement == null) {
+                                sourceElement = newsElement.selectFirst("div.info_group a");
+                            }
+                            if (sourceElement == null) {
+                                sourceElement = newsElement.selectFirst("span.info");
+                            }
+                            if (sourceElement == null) {
+                                sourceElement = newsElement.selectFirst("a[class*='press']");
+                            }
+                            source = sourceElement != null ? sourceElement.text() : "출처 미상";
+
+                            if (!url.isEmpty() && !title.isEmpty()) {
+                                if (seenUrls.contains(url)) {
+                                    log.debug("중복 URL 스킵: {}", url);
+                                    continue;
+                                }
+
+                                seenUrls.add(url);
+                                articles.add(new NewsArticle(title, url, description, source, keyword));
+                                count++;
+                                log.info("뉴스 추가 성공: {} - {}", title, url);
+                            } else {
+                                log.warn("제목 또는 URL이 비어있음. title={}, url={}", title, url);
+                            }
                         } else {
-                            log.warn("제목 또는 URL이 비어있음. title={}, url={}", title, url);
+                            log.warn("제목 요소를 찾을 수 없음. 사용 가능한 링크: {}",
+                                allLinks.stream().map(l -> l.attr("class")).toList());
                         }
-                    } else {
-                        log.warn("제목 요소를 찾을 수 없음. 사용 가능한 링크: {}",
-                            allLinks.stream().map(l -> l.attr("class")).toList());
+                    } catch (Exception e) {
+                        log.warn("Failed to parse news element: {}", e.getMessage(), e);
                     }
-                } catch (Exception e) {
-                    log.warn("Failed to parse news element: {}", e.getMessage(), e);
+                }
+
+                log.info("페이지 {} 크롤링 완료. 현재 총 {}개 기사", page, articles.size());
+
+                if (page < 3 && articles.size() < maxArticles) {
+                    Thread.sleep(500);
                 }
             }
 
