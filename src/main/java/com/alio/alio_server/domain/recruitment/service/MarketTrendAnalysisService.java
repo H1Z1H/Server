@@ -27,6 +27,29 @@ public class MarketTrendAnalysisService {
         List<WebScrapingUtil.NewsArticle> articles = webScrapingUtil.crawlRecruitmentNews();
         log.info("총 {}개의 기사 크롤링 완료", articles.size());
 
+        if (articles.isEmpty()) {
+            log.error("크롤링된 기사가 없습니다!");
+            return MarketTrendResponse.builder()
+                    .trendSummary("크롤링된 뉴스가 없습니다.")
+                    .keywords(List.of())
+                    .newsSummaries(List.of())
+                    .industries(List.of())
+                    .build();
+        }
+
+        for (int i = 0; i < articles.size(); i++) {
+            WebScrapingUtil.NewsArticle article = articles.get(i);
+            log.info("크롤링된 기사 [{}]: {} - {} - {}",
+                i + 1, article.keyword, article.title, article.url);
+        }
+
+        List<WebScrapingUtil.NewsArticle> overseasNews = articles.stream()
+                .filter(article -> "해외취업".equals(article.keyword))
+                .limit(5)
+                .toList();
+
+        log.info("해외취업 관련 뉴스 {}개 필터링 완료", overseasNews.size());
+
         String newsContent = buildNewsContent(articles);
 
         String systemPrompt = buildSystemPrompt();
@@ -34,7 +57,7 @@ public class MarketTrendAnalysisService {
 
         String aiResponse = geminiApiClient.sendMessage(systemPrompt, userMessage);
 
-        return parseAiResponse(aiResponse, articles);
+        return parseAiResponse(aiResponse, articles, overseasNews);
     }
 
     private String buildNewsContent(List<WebScrapingUtil.NewsArticle> articles) {
@@ -81,6 +104,9 @@ public class MarketTrendAnalysisService {
                     {"industry": "산업군2", "issueCount": 10, "description": "이슈 설명"}
                   ]
                 }
+
+                **중요: newsSummaries의 각 항목에는 반드시 articleIndex를 포함해야 합니다.
+                articleIndex는 위에서 제공된 [기사 N] 번호를 그대로 사용하세요.**
                 """;
     }
 
@@ -100,7 +126,8 @@ public class MarketTrendAnalysisService {
                 """, newsContent);
     }
 
-    private MarketTrendResponse parseAiResponse(String aiResponse, List<WebScrapingUtil.NewsArticle> articles) {
+    private MarketTrendResponse parseAiResponse(String aiResponse, List<WebScrapingUtil.NewsArticle> articles,
+                                                 List<WebScrapingUtil.NewsArticle> overseasNews) {
         try {
             String jsonResponse = extractJson(aiResponse);
             JsonObject jsonObject = gson.fromJson(jsonResponse, JsonObject.class);
@@ -121,32 +148,39 @@ public class MarketTrendAnalysisService {
             }
 
             List<MarketTrendResponse.NewsSummary> newsSummaries = new ArrayList<>();
-            if (jsonObject.has("newsSummaries")) {
-                JsonArray summariesArray = jsonObject.getAsJsonArray("newsSummaries");
-                for (int i = 0; i < summariesArray.size(); i++) {
-                    JsonObject summaryObj = summariesArray.get(i).getAsJsonObject();
-                    String title = summaryObj.get("title").getAsString();
-                    String summary = summaryObj.get("summary").getAsString();
 
-                    int articleIndex = summaryObj.has("articleIndex") ?
-                            summaryObj.get("articleIndex").getAsInt() - 1 : -1;
+            if (!overseasNews.isEmpty()) {
+                log.info("해외취업 뉴스 {}개를 직접 반환합니다", overseasNews.size());
 
-                    String url = "";
-                    String source = "";
-                    if (articleIndex >= 0 && articleIndex < articles.size()) {
-                        WebScrapingUtil.NewsArticle article = articles.get(articleIndex);
-                        url = article.url;
-                        source = article.source;
+                JsonArray aiSummaries = jsonObject.has("newsSummaries") ?
+                        jsonObject.getAsJsonArray("newsSummaries") : new JsonArray();
+
+                for (int i = 0; i < overseasNews.size(); i++) {
+                    WebScrapingUtil.NewsArticle article = overseasNews.get(i);
+
+                    String summary = article.description;
+                    if (i < aiSummaries.size()) {
+                        JsonObject aiSummary = aiSummaries.get(i).getAsJsonObject();
+                        if (aiSummary.has("summary")) {
+                            summary = aiSummary.get("summary").getAsString();
+                            log.info("AI 요약 사용 [{}]: {}", i + 1, article.title);
+                        }
                     }
 
                     newsSummaries.add(MarketTrendResponse.NewsSummary.builder()
-                            .title(title)
-                            .url(url)
+                            .title(article.title)
+                            .url(article.url)
                             .summary(summary)
-                            .source(source)
+                            .source(article.source)
                             .build());
+
+                    log.info("뉴스 추가 [{}]: {} -> {}", i + 1, article.title, article.url);
                 }
+            } else {
+                log.warn("해외취업 관련 뉴스가 없습니다");
             }
+
+            log.info("최종 뉴스 요약 개수: {}", newsSummaries.size());
 
             List<MarketTrendResponse.IndustryIssue> industries = new ArrayList<>();
             if (jsonObject.has("industries")) {
@@ -187,4 +221,5 @@ public class MarketTrendAnalysisService {
         }
         return cleaned.trim();
     }
+
 }
