@@ -44,10 +44,12 @@ public class CommandCommunityService {
                 .content(request.content())
                 .rating(request.rating())
                 .caseType(caseType)
+                .isAnonymous(request.isAnonymous() != null ? request.isAnonymous() : false)
+                .country(request.country())
                 .tags(tags)
                 .build();
 
-        String summary = summaryService.summarize(request.content());
+        String summary = summaryService.summarizeWithGemini(request.content(), caseType.name());
         post.updateSummary(summary);
 
         CommunityPost saved = postRepository.save(post);

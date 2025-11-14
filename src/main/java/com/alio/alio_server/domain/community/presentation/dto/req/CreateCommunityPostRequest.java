@@ -12,7 +12,9 @@ public record CreateCommunityPostRequest(
         @NotBlank String content,
         @Min(1) @Max(5) Integer rating,
         @NotEmpty List<@NotBlank String> tags,
-        @NotBlank String caseType
+        @NotBlank String caseType,
+        Boolean isAnonymous,
+        String country
 ) {
 }
 

@@ -18,8 +18,11 @@ public class CommunityPostListResponse {
     private final Integer rating;
     private final String caseType;
     private final String summary;
+    private final Boolean isAnonymous;
+    private final Long viewCount;
     private final LocalDateTime createdAt;
     private final List<String> tags;
+    private final String country;
 
     public static CommunityPostListResponse from(CommunityPost post) {
         return CommunityPostListResponse.builder()
@@ -29,14 +32,20 @@ public class CommunityPostListResponse {
                 .rating(post.getRating())
                 .caseType(post.getCaseType().name())
                 .summary(post.getSummary())
+                .isAnonymous(post.getIsAnonymous())
+                .viewCount(post.getViewCount())
                 .createdAt(post.getCreatedAt())
                 .tags(post.getTags().stream()
                         .map(tag -> tag.getName().toLowerCase())
                         .collect(Collectors.toList()))
+                .country(post.getCountry())
                 .build();
     }
 
     private static String resolveAuthor(CommunityPost post) {
+        if (post.getIsAnonymous()) {
+            return "익명";
+        }
         String nickname = post.getAuthor().getNickname();
         if (StringUtils.hasText(nickname)) {
             return nickname;

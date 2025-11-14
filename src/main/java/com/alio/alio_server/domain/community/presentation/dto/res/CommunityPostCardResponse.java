@@ -35,6 +35,9 @@ public class CommunityPostCardResponse {
     }
 
     private static String resolveAuthor(CommunityPost post) {
+        if (post.getIsAnonymous()) {
+            return "익명";
+        }
         String nickname = post.getAuthor().getNickname();
         if (StringUtils.hasText(nickname)) {
             return nickname;

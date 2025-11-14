@@ -43,6 +43,17 @@ public class CommunityPost {
     @Column(nullable = false)
     private Integer rating;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isAnonymous = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Long viewCount = 0L;
+
+    @Column(length = 50)
+    private String country;
+
     @ManyToMany
     @JoinTable(
             name = "community_post_tag",
@@ -65,6 +76,10 @@ public class CommunityPost {
 
     public void addTag(CommunityTag tag) {
         tags.add(tag);
+    }
+
+    public void incrementViewCount() {
+        this.viewCount++;
     }
 }
 

@@ -34,9 +34,11 @@ public class QueryCommunityService {
                 .toList();
     }
 
+    @Transactional
     public CommunityPostResponse getPost(Long postId) {
         CommunityPost post = postRepository.findWithTagsById(postId)
                 .orElseThrow(CommunityPostNotFoundException::new);
+        post.incrementViewCount();
         return CommunityPostResponse.from(post);
     }
 
@@ -73,7 +75,7 @@ public class QueryCommunityService {
                     .collect(Collectors.joining(" "));
         }
 
-        String summary = summaryService.summarize(combined);
+        String summary = summaryService.summarizeWithGemini(combined, caseType.name());
 
         List<String> topTags = posts.stream()
                 .flatMap(post -> post.getTags().stream())
